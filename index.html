@@ -92,7 +92,6 @@
         <button onClick="{{ scrollClasses }}" style="background:none; border:none; color:#3A302E; font-weight:500; font-size:14.5px; padding:9px 13px; border-radius:8px; cursor:pointer;">Assurances</button>
         <button onClick="{{ scrollWhy }}" style="background:none; border:none; color:#3A302E; font-weight:500; font-size:14.5px; padding:9px 13px; border-radius:8px; cursor:pointer;">Notre méthode</button>
         <button onClick="{{ goLoi }}" style="background:none; border:none; color:#3A302E; font-weight:500; font-size:14.5px; padding:9px 13px; border-radius:8px; cursor:pointer;">Cadre légal suisse</button>
-        <button onClick="{{ goAdmin }}" title="Accès conseiller" style="background:none; border:1px solid #E3D6C9; color:#6E645F; font-weight:500; font-size:13.5px; padding:8px 13px; border-radius:8px; cursor:pointer;">Espace conseiller</button>
         <button onClick="{{ scrollClasses }}" style="background:#7E0E2B; border:none; color:#fff; font-weight:600; font-size:14.5px; padding:11px 20px; border-radius:9px; cursor:pointer; margin-left:6px;">Comparer gratuitement</button>
       </nav>
     </div>
@@ -696,7 +695,6 @@
               <button onClick="{{ goLoi }}" style="background:none; border:none; color:#DCC3BA; font-size:14px; text-align:left; cursor:pointer; padding:0;">Cadre légal suisse</button>
               <button onClick="{{ openCgu }}" style="background:none; border:none; color:#DCC3BA; font-size:14px; text-align:left; cursor:pointer; padding:0;">Conditions générales</button>
               <button onClick="{{ openCgu }}" style="background:none; border:none; color:#DCC3BA; font-size:14px; text-align:left; cursor:pointer; padding:0;">Protection des données</button>
-              <button onClick="{{ goAdmin }}" style="background:none; border:none; color:#DCC3BA; font-size:14px; text-align:left; cursor:pointer; padding:0;">Espace conseiller</button>
             </div>
           </div>
           <div>
@@ -717,7 +715,7 @@
 <script type="text/x-dc" data-dc-script>
 class Component extends DCLogic {
   state = {
-    route: 'home', activeClass: 'maladie', step: 1,
+    route: (window.location.pathname.replace(/\/$/, '') === '/moderateur' ? 'admin' : 'home'), activeClass: 'maladie', step: 1,
     form: { nom:'', prenom:'', age:'', dob:'', adresse:'', ville:'', cp:'', email:'', tel:'' },
     errors: {}, smsCode:'', smsInput:'', smsError:'',
     consent:false, consentError:'',
@@ -867,8 +865,9 @@ class Component extends DCLogic {
   }
 
   go=(r)=>this.setState({route:r});
-  goHome=()=>this.setState({route:'home'});
-  goAdmin=()=>this.setState({route:'admin'});
+  setRoute=(route, path)=>{ if (path && window.location.pathname !== path) window.history.pushState({}, '', path); this.setState({route}); };
+  goHome=()=>this.setRoute('home', '/');
+  goAdmin=()=>this.setRoute('admin', '/moderateur');
   goLoi=()=>this.setState({route:'loi'});
   scrollTo=(id)=>{ this.setState({route:'home'}); requestAnimationFrame(()=>{ const el=document.getElementById(id); if(el) window.scrollTo({ top: el.getBoundingClientRect().top+window.scrollY-80, behavior:'smooth' }); }); };
   scrollClasses=()=>this.scrollTo('orv-classes');
