@@ -1,0 +1,10 @@
+{
+  "name": "assurio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/verify-static.mjs",
+    "start": "npx serve ."
+  }
+}

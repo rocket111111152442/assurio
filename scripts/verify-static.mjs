@@ -1,0 +1,45 @@
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const indexPath = path.join(root, "index.html");
+const required = [
+  "index.html",
+  "support.js",
+  "image-slot.js",
+  "assets/ovantis-o.png",
+  "assets/ovantis-logo.png",
+  "assets/ovantis-mark.png"
+];
+
+const missing = required.filter((file) => !fs.existsSync(path.join(root, file)));
+if (missing.length) {
+  console.error("Missing required files:");
+  for (const file of missing) console.error(`- ${file}`);
+  process.exit(1);
+}
+
+const html = fs.readFileSync(indexPath, "utf8");
+const references = [...html.matchAll(/\b(?:src|href)=["']([^"']+)["']/g)]
+  .map((match) => match[1])
+  .filter((ref) => {
+    if (/^(https?:|data:|mailto:|tel:|#)/i.test(ref)) return false;
+    if (ref.startsWith("//")) return false;
+    return true;
+  });
+
+const badReferences = [];
+for (const ref of references) {
+  const clean = ref.split(/[?#]/, 1)[0].replace(/^\.\//, "");
+  if (!clean) continue;
+  if (!fs.existsSync(path.join(root, clean))) badReferences.push(ref);
+}
+
+if (badReferences.length) {
+  console.error("Broken local references:");
+  for (const ref of badReferences) console.error(`- ${ref}`);
+  process.exit(1);
+}
+
+console.log("Static verification passed.");
