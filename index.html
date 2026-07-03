@@ -7,6 +7,10 @@
 <meta name="description" content="Comparatif gratuit d'assurances en Suisse romande avec Loryance, service rattaché à Dehay Gestion & Services.">
 <meta name="theme-color" content="#7E0E2B">
 <link rel="icon" type="image/png" href="./assets/loryance-mark.png">
+<script>
+  window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
+</script>
+<script defer src="/_vercel/insights/script.js"></script>
 <script src="./support.js"></script>
 </head>
 <body>
@@ -452,6 +456,7 @@
             <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Ville</span><input value="{{ form.ville }}" onInput="{{ on.ville }}" placeholder="Lausanne" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.ville }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.ville }}</span></sc-if></label>
             <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Code postal <span style="font-weight:400; color:#A2958C;">(CH ou FR)</span></span><input inputmode="numeric" value="{{ form.cp }}" onInput="{{ on.cp }}" placeholder="1003 ou 74100" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.cp }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.cp }}</span></sc-if></label>
             <label style="display:flex; flex-direction:column; gap:6px; grid-column:1 / -1;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Adresse e-mail</span><input inputmode="email" value="{{ form.email }}" onInput="{{ on.email }}" placeholder="jean.dupont@email.ch" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.email }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.email }}</span></sc-if></label>
+            <label style="display:flex; flex-direction:column; gap:6px; grid-column:1 / -1;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Numéro de téléphone</span><input inputmode="tel" value="{{ form.tel }}" onInput="{{ on.tel }}" placeholder="+41 79 123 45 67" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.tel }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.tel }}</span></sc-if></label>
           </div>
           <button onClick="{{ next }}" style="width:100%; margin-top:26px; background:#7E0E2B; border:none; color:#fff; font-weight:600; font-size:16px; padding:16px; border-radius:10px; cursor:pointer;">Continuer vers la confirmation</button>
           <div style="display:flex; align-items:center; justify-content:center; gap:7px; margin-top:16px; font-size:12px; color:#A2958C;">
@@ -472,6 +477,7 @@
               <div><span style="color:#A2958C;">Nom complet</span><br><strong style="color:#211A1B;">{{ form.prenom }} {{ form.nom }}</strong></div>
               <div><span style="color:#A2958C;">Assurance</span><br><strong style="color:#211A1B;">{{ activeShort }}</strong></div>
               <div><span style="color:#A2958C;">E-mail</span><br><strong style="color:#211A1B;">{{ form.email }}</strong></div>
+              <div><span style="color:#A2958C;">Téléphone</span><br><strong style="color:#211A1B;">{{ form.tel }}</strong></div>
               <div><span style="color:#A2958C;">Localité</span><br><strong style="color:#211A1B;">{{ form.cp }} {{ form.ville }}</strong></div>
               <div><span style="color:#A2958C;">Adresse</span><br><strong style="color:#211A1B;">{{ form.adresse }}</strong></div>
             </div>
@@ -624,6 +630,7 @@
               </div>
             </div>
             <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px 18px; font-size:13.5px; border-top:1px solid #F1E8DE; padding-top:14px;">
+              <div><span style="color:#A2958C;">Téléphone</span><br><strong style="color:#211A1B;">{{ lead.tel }}</strong></div>
               <div><span style="color:#A2958C;">E-mail</span><br><strong style="color:#211A1B;">{{ lead.email }}</strong></div>
               <div><span style="color:#A2958C;">Âge</span><br><strong style="color:#211A1B;">{{ lead.age }} ans</strong></div>
               <div><span style="color:#A2958C;">Naissance</span><br><strong style="color:#211A1B;">{{ lead.dob }}</strong></div>
@@ -685,7 +692,7 @@
 class Component extends DCLogic {
   state = {
     route: (window.location.pathname.replace(/\/$/, '') === '/moderateur' ? 'admin' : 'home'), activeClass: 'maladie', step: 1,
-    form: { nom:'', prenom:'', age:'', dob:'', adresse:'', ville:'', cp:'', email:'' },
+    form: { nom:'', prenom:'', age:'', dob:'', adresse:'', ville:'', cp:'', email:'', tel:'' },
     errors: {},
     consent:false, consentError:'',
     adminPass:'', adminAuthed:false, adminError:'', leads:[], prevRoute:'home',
@@ -780,9 +787,9 @@ class Component extends DCLogic {
       h("1. Objet du service"),
       p("Loryance exploite un service gratuit et sans engagement de comparaison d'offres d'assurance destiné aux résidents suisses et aux frontaliers. Le service consiste à recueillir vos informations afin qu'un conseiller puisse vous recontacter et vous proposer un comparatif personnalisé. Loryance agit en qualité d'intermédiaire d'assurance au sens de l'art. 40 de la Loi fédérale sur la surveillance des entreprises d'assurance (LSA)."),
       h("2. Consentement à être recontacté(e)"),
-      p("En soumettant le formulaire, vous consentez expressément à être contacté(e) par Loryance et/ou ses conseillers partenaires par courrier électronique, dans le but de vous présenter une offre de comparaison d'assurance. Ce consentement est donné librement et peut être retiré à tout moment, sans frais, par simple demande écrite à l'adresse indiquée à l'article 10."),
+      p("En soumettant le formulaire, vous consentez expressément à être contacté(e) par Loryance et/ou ses conseillers partenaires par téléphone ou courrier électronique, dans le but de vous présenter une offre de comparaison d'assurance. Ce consentement est donné librement et peut être retiré à tout moment, sans frais, par simple demande écrite à l'adresse indiquée à l'article 10."),
       h("3. Protection des données (Suisse — nLPD)"),
-      p("Le traitement de vos données personnelles est effectué conformément à la Loi fédérale sur la protection des données (nLPD, RS 235.1), entrée en vigueur le 1er septembre 2023, ainsi qu'à son ordonnance (OPDo). Les données collectées (nom, prénom, âge, date de naissance, adresse, localité, code postal et adresse e-mail) sont traitées de manière loyale, licite et proportionnée, pour la seule finalité décrite à l'article 1."),
+      p("Le traitement de vos données personnelles est effectué conformément à la Loi fédérale sur la protection des données (nLPD, RS 235.1), entrée en vigueur le 1er septembre 2023, ainsi qu'à son ordonnance (OPDo). Les données collectées (nom, prénom, âge, date de naissance, adresse, localité, code postal, adresse e-mail et numéro de téléphone) sont traitées de manière loyale, licite et proportionnée, pour la seule finalité décrite à l'article 1."),
       p("Conformément aux art. 25 à 28 nLPD, vous disposez d'un droit d'accès, de rectification, d'effacement, de limitation et d'opposition, ainsi que d'un droit à la portabilité. Le Préposé fédéral à la protection des données et à la transparence (PFPDT) est l'autorité de surveillance compétente en Suisse."),
       h("4. Protection des données (UE / France — RGPD)"),
       p("Pour les utilisateurs résidant en France ou dans l'Union européenne (notamment les frontaliers), le traitement respecte également le Règlement (UE) 2016/679 (RGPD) et la Loi n° 78-17 du 6 janvier 1978 « Informatique et Libertés ». La base légale du traitement est votre consentement (art. 6.1.a RGPD). Vous disposez des droits d'accès, de rectification, d'effacement, de limitation, d'opposition et de portabilité (art. 15 à 22 RGPD), et du droit de réclamation auprès de la CNIL."),
@@ -854,6 +861,7 @@ class Component extends DCLogic {
     if(!f.ville.trim()) e.ville="Ville requise";
     if(!/^\d{4,5}$/.test(f.cp.trim())) e.cp="Code postal CH (4) ou FR (5)";
     if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email.trim())) e.email="E-mail invalide";
+    if(f.tel.replace(/[^\d]/g,'').length<9) e.tel="Numéro invalide";
     this.setState({errors:e});
     return Object.keys(e).length===0;
   }
@@ -873,7 +881,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const s=this.state; const cls=this.CLASSES[s.activeClass]||this.CLASSES.maladie;
-    const on={}; ['nom','prenom','age','dob','adresse','ville','cp','email'].forEach(k=>{ on[k]=(e)=>this.setField(k,e.target.value); });
+    const on={}; ['nom','prenom','age','dob','adresse','ville','cp','email','tel'].forEach(k=>{ on[k]=(e)=>this.setField(k,e.target.value); });
     const active='#7E0E2B', idle='#E3D6C9';
     const leadsView=s.leads.map(l=>({...l, initials:((l.prenom||' ')[0]+(l.nom||' ')[0]).toUpperCase(), date:this.fmtDate(l.ts), onDelete:()=>this.deleteLead(l.ts)}));
     return {

@@ -26,6 +26,7 @@ for (const page of ["index.html", "moderateur/index.html"]) {
     .map((match) => match[1])
     .filter((ref) => {
       if (/^(https?:|data:|mailto:|tel:|#|\/$)/i.test(ref)) return false;
+      if (ref.startsWith("/_vercel/")) return false;
       if (ref.startsWith("//")) return false;
       return true;
     });

@@ -6,5 +6,8 @@
   "scripts": {
     "build": "node scripts/verify-static.mjs",
     "start": "npx serve ."
+  },
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
   }
 }
