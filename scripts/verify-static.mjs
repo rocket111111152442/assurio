@@ -3,9 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const indexPath = path.join(root, "index.html");
 const required = [
   "index.html",
+  "moderateur/index.html",
   "support.js",
   "image-slot.js",
   "assets/ovantis-o.png",
@@ -20,20 +20,22 @@ if (missing.length) {
   process.exit(1);
 }
 
-const html = fs.readFileSync(indexPath, "utf8");
-const references = [...html.matchAll(/\b(?:src|href)=["']([^"']+)["']/g)]
-  .map((match) => match[1])
-  .filter((ref) => {
-    if (/^(https?:|data:|mailto:|tel:|#)/i.test(ref)) return false;
-    if (ref.startsWith("//")) return false;
-    return true;
-  });
-
 const badReferences = [];
-for (const ref of references) {
-  const clean = ref.split(/[?#]/, 1)[0].replace(/^\.\//, "");
-  if (!clean) continue;
-  if (!fs.existsSync(path.join(root, clean))) badReferences.push(ref);
+for (const page of ["index.html", "moderateur/index.html"]) {
+  const html = fs.readFileSync(path.join(root, page), "utf8");
+  const references = [...html.matchAll(/\b(?:src|href)=["']([^"']+)["']/g)]
+    .map((match) => match[1])
+    .filter((ref) => {
+      if (/^(https?:|data:|mailto:|tel:|#|\/$)/i.test(ref)) return false;
+      if (ref.startsWith("//")) return false;
+      return true;
+    });
+
+  for (const ref of references) {
+    const clean = ref.split(/[?#]/, 1)[0].replace(/^\.\//, "").replace(/^\//, "");
+    if (!clean) continue;
+    if (!fs.existsSync(path.join(root, clean))) badReferences.push(`${page} -> ${ref}`);
+  }
 }
 
 if (badReferences.length) {
