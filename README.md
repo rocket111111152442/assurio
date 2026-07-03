@@ -1,6 +1,6 @@
-# Assurio / Ovantis
+# Assurio / Loryance
 
-Site statique prêt pour Vercel, basé sur le prototype Ovantis de comparaison d'assurances.
+Site statique prêt pour Vercel, basé sur le prototype Loryance de comparaison d'assurances.
 
 ## Déploiement Vercel
 

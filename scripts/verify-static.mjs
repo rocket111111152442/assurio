@@ -8,9 +8,8 @@ const required = [
   "moderateur/index.html",
   "support.js",
   "image-slot.js",
-  "assets/ovantis-o.png",
-  "assets/ovantis-logo.png",
-  "assets/ovantis-mark.png"
+  "assets/loryance-logo.png",
+  "assets/loryance-mark.png"
 ];
 
 const missing = required.filter((file) => !fs.existsSync(path.join(root, file)));
