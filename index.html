@@ -712,8 +712,7 @@
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
             <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Prénom <span style="color:#7E0E2B;">*</span></span><input value="{{ form.prenom }}" onInput="{{ on.prenom }}" placeholder="Jean" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.prenom }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.prenom }}</span></sc-if></label>
             <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Nom <span style="color:#7E0E2B;">*</span></span><input value="{{ form.nom }}" onInput="{{ on.nom }}" placeholder="Dupont" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.nom }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.nom }}</span></sc-if></label>
-            <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Date de naissance <span style="color:#7E0E2B;">*</span></span><input type="date" value="{{ form.dob }}" onInput="{{ on.dob }}" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.dob }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.dob }}</span></sc-if></label>
-            <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Âge <span style="color:#7E0E2B;">*</span></span><input inputmode="numeric" value="{{ form.age }}" onInput="{{ on.age }}" placeholder="34" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.age }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.age }}</span></sc-if></label>
+            <label style="display:flex; flex-direction:column; gap:6px; grid-column:1 / -1;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Date de naissance <span style="color:#7E0E2B;">*</span></span><input type="date" value="{{ form.dob }}" onInput="{{ on.dob }}" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.dob }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.dob }}</span></sc-if></label>
             <label style="display:flex; flex-direction:column; gap:6px; grid-column:1 / -1;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Adresse <span style="color:#7E0E2B;">*</span></span><input value="{{ form.adresse }}" onInput="{{ on.adresse }}" placeholder="Rue du Lac 12" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.adresse }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.adresse }}</span></sc-if></label>
             <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Ville <span style="color:#7E0E2B;">*</span></span><input value="{{ form.ville }}" onInput="{{ on.ville }}" placeholder="Lausanne" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.ville }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.ville }}</span></sc-if></label>
             <label style="display:flex; flex-direction:column; gap:6px;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Code postal <span style="font-weight:400; color:#A2958C;">(CH ou FR)</span> <span style="color:#7E0E2B;">*</span></span><input inputmode="numeric" value="{{ form.cp }}" onInput="{{ on.cp }}" placeholder="1003 ou 74100" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.cp }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.cp }}</span></sc-if></label>
@@ -1133,8 +1132,8 @@ class Component extends DCLogic {
     const f=this.state.form; const e={};
     if(!f.prenom.trim()) e.prenom="Prénom requis";
     if(!f.nom.trim()) e.nom="Nom requis";
-    if(!f.dob) e.dob="Date requise";
-    if(!f.age || isNaN(f.age) || +f.age<18 || +f.age>120) e.age="Âge valide (18+)";
+    if(!f.dob) e.dob="Date de naissance requise";
+    else { const a=this.ageFromDob(f.dob); if(a==null||a<18||a>120) e.dob="Date de naissance valide (18 ans ou plus)"; }
     if(!f.adresse.trim()) e.adresse="Adresse requise";
     if(!f.ville.trim()) e.ville="Ville requise";
     if(!/^\d{4,5}$/.test(f.cp.trim())) e.cp="Code postal CH (4) ou FR (5)";
@@ -1148,7 +1147,7 @@ class Component extends DCLogic {
   toggleConsent=(e)=>this.setState({consent:e.target.checked, consentError:''});
   submit=async ()=>{ if(!this.state.consent){ this.setState({consentError:"Vous devez accepter les conditions générales pour continuer."}); return; }
     if(this.state.submitting) return;
-    const f=this.state.form; const lead={...f, type:this.CLASSES[this.state.activeClass].short};
+    const f=this.state.form; const lead={...f, age:String(this.ageFromDob(f.dob) ?? ''), type:this.CLASSES[this.state.activeClass].short};
     this.setState({submitting:true, consentError:''});
     try {
       const r = await fetch(this.API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(lead) });
@@ -1172,6 +1171,7 @@ class Component extends DCLogic {
     } catch(e){} };
   exportLeads=()=>{ const blob=new Blob([JSON.stringify(this.state.leads,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='loryance-demandes.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),2000); };
   fmtDate(ts){ try{ return new Date(ts).toLocaleString('fr-CH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
+  ageFromDob(dob){ if(!dob) return null; const d=new Date(dob); if(isNaN(d.getTime())) return null; const t=new Date(); let a=t.getFullYear()-d.getFullYear(); const m=t.getMonth()-d.getMonth(); if(m<0||(m===0&&t.getDate()<d.getDate())) a--; return a; }
 
   renderVals() {
     const s=this.state; const cls=this.CLASSES[s.activeClass]||this.CLASSES.maladie;
