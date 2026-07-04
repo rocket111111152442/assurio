@@ -957,11 +957,10 @@ class Component extends DCLogic {
     route: (window.location.pathname.replace(/\/$/, '') === '/moderateur' ? 'admin' : 'home'), activeClass: 'maladie', step: 1,
     form: { nom:'', prenom:'', age:'', dob:'', adresse:'', ville:'', cp:'', email:'', tel:'' },
     errors: {},
-    consent:false, consentError:'',
-    adminPass:'', adminAuthed:false, adminError:'', leads:[], prevRoute:'home',
+    consent:false, consentError:'', submitting:false,
+    adminPass:'', adminAuthed:false, adminAuth:'', adminError:'', leads:[], prevRoute:'home',
   };
-  KEY = 'loryance_leads_v1';
-  PASS = 'yayatos11';
+  API = '/api/leads';
   CLASSES = {
     maladie: { title: "Assurance maladie", short: "Assurance maladie" },
     auto:    { title: "Assurance auto & moto", short: "Auto & moto" },
@@ -971,7 +970,6 @@ class Component extends DCLogic {
 
   componentDidMount() {
     this.prevRouteForEffects = this.state.route;
-    this.loadLeads();
     this.setupReveal();
     this.injectContent();
   }
@@ -983,8 +981,12 @@ class Component extends DCLogic {
     }
   }
 
-  loadLeads() { try { const r = localStorage.getItem(this.KEY); this.setState({ leads: r ? JSON.parse(r) : [] }); } catch(e){ this.setState({ leads: [] }); } }
-  saveLeads(l) { try { localStorage.setItem(this.KEY, JSON.stringify(l)); } catch(e){} }
+  async fetchLeads(pass) {
+    const r = await fetch(this.API, { headers: { 'x-mod-pass': pass } });
+    if (r.status === 401) { const e = new Error('unauthorized'); e.code = 401; throw e; }
+    if (!r.ok) throw new Error('fetch failed');
+    return await r.json();
+  }
 
   setupReveal() {
     const els = document.querySelectorAll('[data-reveal]:not(.in)');
@@ -1145,14 +1147,30 @@ class Component extends DCLogic {
   next=()=>{ if(this.validateStep1()) this.setState({step:3}); };
   back=()=>this.setState(s=>({step:s.step===3?1:Math.max(1,s.step-1)}));
   toggleConsent=(e)=>this.setState({consent:e.target.checked, consentError:''});
-  submit=()=>{ if(!this.state.consent){ this.setState({consentError:"Vous devez accepter les conditions générales pour continuer."}); return; }
-    const f=this.state.form; const lead={...f, type:this.CLASSES[this.state.activeClass].short, ts:Date.now()};
-    const leads=[lead, ...this.state.leads]; this.saveLeads(leads); this.setState({leads, step:4}); };
+  submit=async ()=>{ if(!this.state.consent){ this.setState({consentError:"Vous devez accepter les conditions générales pour continuer."}); return; }
+    if(this.state.submitting) return;
+    const f=this.state.form; const lead={...f, type:this.CLASSES[this.state.activeClass].short};
+    this.setState({submitting:true, consentError:''});
+    try {
+      const r = await fetch(this.API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(lead) });
+      if(!r.ok) throw new Error('post failed');
+      this.setState({submitting:false, step:4});
+    } catch(e) {
+      this.setState({submitting:false, consentError:"Une erreur est survenue lors de l'envoi. Merci de réessayer dans un instant."});
+    } };
 
   onAdminPass=(e)=>this.setState({adminPass:e.target.value, adminError:''});
-  adminLogin=()=>{ if(this.state.adminPass===this.PASS){ this.loadLeads(); this.setState({adminAuthed:true, adminError:'', adminPass:''}); } else this.setState({adminError:"Code d'accès incorrect."}); };
-  lockAdmin=()=>this.setState({adminAuthed:false});
-  deleteLead=(ts)=>{ const leads=this.state.leads.filter(l=>l.ts!==ts); this.saveLeads(leads); this.setState({leads}); };
+  adminLogin=async ()=>{ const pass=this.state.adminPass;
+    try { const leads = await this.fetchLeads(pass);
+      this.setState({adminAuthed:true, adminAuth:pass, adminError:'', adminPass:'', leads}); }
+    catch(e){ if(e.code===401) this.setState({adminError:"Code d'accès incorrect."});
+      else this.setState({adminError:"Erreur de connexion au serveur. Réessayez."}); } };
+  lockAdmin=()=>this.setState({adminAuthed:false, adminAuth:'', leads:[]});
+  deleteLead=async (id)=>{ try {
+      const r = await fetch(`${this.API}?id=${encodeURIComponent(id)}`, { method:'DELETE', headers:{'x-mod-pass':this.state.adminAuth} });
+      if(!r.ok) throw new Error('delete failed');
+      this.setState({leads:this.state.leads.filter(l=>l.id!==id)});
+    } catch(e){} };
   exportLeads=()=>{ const blob=new Blob([JSON.stringify(this.state.leads,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='loryance-demandes.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),2000); };
   fmtDate(ts){ try{ return new Date(ts).toLocaleString('fr-CH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
 
@@ -1160,7 +1178,7 @@ class Component extends DCLogic {
     const s=this.state; const cls=this.CLASSES[s.activeClass]||this.CLASSES.maladie;
     const on={}; ['nom','prenom','age','dob','adresse','ville','cp','email','tel'].forEach(k=>{ on[k]=(e)=>this.setField(k,e.target.value); });
     const active='#7E0E2B', idle='#E3D6C9';
-    const leadsView=s.leads.map(l=>({...l, initials:((l.prenom||' ')[0]+(l.nom||' ')[0]).toUpperCase(), date:this.fmtDate(l.ts), onDelete:()=>this.deleteLead(l.ts)}));
+    const leadsView=s.leads.map(l=>({...l, initials:((l.prenom||' ')[0]+(l.nom||' ')[0]).toUpperCase(), date:this.fmtDate(l.created_at), onDelete:()=>this.deleteLead(l.id)}));
     return {
       isHome:s.route==='home', isForm:s.route==='form', isCgu:s.route==='cgu', isLoi:s.route==='loi', isAdmin:s.route==='admin',
       notAuthed:!s.adminAuthed, authed:s.adminAuthed,
