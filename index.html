@@ -789,6 +789,7 @@
             <label style="display:flex; flex-direction:column; gap:6px; grid-column:1 / -1;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Adresse e-mail <span style="color:#7E0E2B;">*</span></span><input inputmode="email" value="{{ form.email }}" onInput="{{ on.email }}" placeholder="jean.dupont@email.ch" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.email }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.email }}</span></sc-if></label>
             <label style="display:flex; flex-direction:column; gap:6px; grid-column:1 / -1;"><span style="font-size:13px; font-weight:600; color:#3A302E;">Numéro de téléphone <span style="color:#7E0E2B;">*</span></span><input inputmode="tel" value="{{ form.tel }}" onInput="{{ on.tel }}" placeholder="+41 79 123 45 67" style="border:1.5px solid #E3D6C9; border-radius:9px; padding:13px 14px; font-size:15px; color:#211A1B; background:#FDFBF8;" style-focus="border-color:#7E0E2B;"><sc-if value="{{ err.tel }}"><span style="font-size:12px; color:#B42318; font-weight:600;">{{ err.tel }}</span></sc-if></label>
           </div>
+          <div aria-hidden="true" style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden;"><input value="{{ form.website }}" onInput="{{ on.website }}" tabindex="-1" autocomplete="off" placeholder="Ne pas remplir ce champ"></div>
           <button onClick="{{ next }}" style="width:100%; margin-top:26px; background:#7E0E2B; border:none; color:#fff; font-weight:600; font-size:16px; padding:16px; border-radius:10px; cursor:pointer;">Continuer vers la confirmation</button>
           <div style="display:flex; align-items:center; justify-content:center; gap:7px; margin-top:16px; font-size:12px; color:#A2958C;">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 10V8a6 6 0 0 1 12 0v2m-13 0h14v10H5V10Z" stroke="#A2958C" stroke-width="1.6" stroke-linejoin="round"/></svg>
@@ -1023,7 +1024,7 @@
 class Component extends DCLogic {
   state = {
     route: (window.location.pathname.replace(/\/$/, '') === '/moderateur' ? 'admin' : 'home'), activeClass: 'maladie', step: 1,
-    form: { nom:'', prenom:'', age:'', dob:'', adresse:'', ville:'', cp:'', email:'', tel:'' },
+    form: { nom:'', prenom:'', age:'', dob:'', adresse:'', ville:'', cp:'', email:'', tel:'', website:'' },
     errors: {},
     consent:false, consentError:'', submitting:false,
     adminPass:'', adminAuthed:false, adminAuth:'', adminError:'', leads:[], prevRoute:'home',
@@ -1245,7 +1246,7 @@ class Component extends DCLogic {
 
   renderVals() {
     const s=this.state; const cls=this.CLASSES[s.activeClass]||this.CLASSES.maladie;
-    const on={}; ['nom','prenom','age','dob','adresse','ville','cp','email','tel'].forEach(k=>{ on[k]=(e)=>this.setField(k,e.target.value); });
+    const on={}; ['nom','prenom','age','dob','adresse','ville','cp','email','tel','website'].forEach(k=>{ on[k]=(e)=>this.setField(k,e.target.value); });
     const active='#7E0E2B', idle='#E3D6C9';
     const leadsView=s.leads.map(l=>({...l, initials:((l.prenom||' ')[0]+(l.nom||' ')[0]).toUpperCase(), date:this.fmtDate(l.created_at), onDelete:()=>this.deleteLead(l.id)}));
     return {
