@@ -1224,7 +1224,7 @@ class Component extends DCLogic {
     try {
       const r = await fetch(this.API, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(lead) });
       if(!r.ok) throw new Error('post failed');
-      this.setState({submitting:false, step:4});
+      window.location.href = '/merci';
     } catch(e) {
       this.setState({submitting:false, consentError:"Une erreur est survenue lors de l'envoi. Merci de réessayer dans un instant."});
     } };

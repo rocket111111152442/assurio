@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merci — Loryance</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" type="image/png" href="./assets/loryance-mark.png">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body { font-family: 'Libre Franklin', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #211A1B; background: #FAF6F1; }
+  .container { max-width: 600px; margin: 0 auto; padding: 80px 24px; text-align: center; min-height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+  .icon { width: 80px; height: 80px; margin: 0 auto 30px; border-radius: 50%; background: #E8F5E9; display: flex; align-items: center; justify-content: center; animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+  .icon svg { width: 40px; height: 40px; color: #2E7D32; }
+  h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 600; font-size: 48px; margin: 0 0 16px; color: #211A1B; line-height: 1.2; }
+  p { font-size: 18px; color: #544A46; line-height: 1.65; margin: 0 0 10px; }
+  .subtitle { font-size: 16px; color: #8A7F79; margin-bottom: 40px; }
+  .steps { margin: 40px 0; padding: 30px; background: #fff; border-radius: 14px; border: 1px solid #EFE6DA; text-align: left; }
+  .step { display: flex; gap: 16px; margin-bottom: 20px; }
+  .step:last-child { margin-bottom: 0; }
+  .step-num { flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%; background: #7E0E2B; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; }
+  .step-text { flex: 1; }
+  .step-text strong { display: block; color: #211A1B; font-weight: 600; margin-bottom: 4px; }
+  .step-text span { font-size: 14px; color: #8A7F79; }
+  .cta { margin-top: 40px; display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  a, button { text-decoration: none; border: none; cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 600; padding: 14px 26px; border-radius: 10px; transition: all 0.3s; }
+  .btn-primary { background: #7E0E2B; color: #fff; }
+  .btn-primary:hover { background: #5A0A1F; }
+  .btn-secondary { background: #fff; border: 1.5px solid #D8C9BB; color: #211A1B; }
+  .btn-secondary:hover { background: #FBF7F2; }
+  .contact { margin-top: 50px; padding-top: 40px; border-top: 1px solid #EFE6DA; font-size: 14px; color: #8A7F79; }
+  .contact strong { color: #211A1B; }
+  @keyframes popIn { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+  @media (max-width: 640px) {
+    h1 { font-size: 36px; }
+    .container { padding: 60px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="icon">
+    <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 12.5L9.2 16.7L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <h1>Merci !</h1>
+  <p class="subtitle">Votre demande de comparatif a été reçue avec succès.</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-text">
+        <strong>Nous analysons votre dossier</strong>
+        <span>Notre équipe examine vos besoins et votre situation actuelle.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-text">
+        <strong>Comparaison personnalisée</strong>
+        <span>Nous analysons les meilleures options parmi plus de 40 compagnies.</span>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-text">
+        <strong>Vous serez contacté(e) très prochainement</strong>
+        <span>Un conseiller vous appellera avec vos propositions et estimations d'économies.</span>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size: 15px; color: #544A46; margin: 30px 0;">
+    <strong>Sans engagement.</strong> Vous restez libre de refuser toute offre et de continuer avec vos assurances actuelles.
+  </p>
+
+  <div class="cta">
+    <a href="/" class="btn-primary">Retour à l'accueil</a>
+    <a href="https://www.loryance.ch/#orv-faq" class="btn-secondary">Questions fréquentes</a>
+  </div>
+
+  <div class="contact">
+    Besoin d'aide immédiate ? Appelez-nous au <strong>0800 62 62 62</strong> (gratuit)<br>
+    Lun–Ven 8h–19h · Sam 9h–13h
+  </div>
+</div>
+</body>
+</html>
