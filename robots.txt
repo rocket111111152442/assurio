@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /moderateur
+Disallow: /api/
+
+Sitemap: https://www.loryance.ch/sitemap.xml
