@@ -13,10 +13,63 @@
 // - Contrôle de l'en-tête Origin sur les requêtes qui modifient des données.
 
 import { createHash, timingSafeEqual, randomInt } from 'node:crypto';
+import nodemailer from 'nodemailer';
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SECRET = process.env.SUPABASE_SECRET_KEY;
 const MOD_PASS = process.env.MODERATOR_PASSWORD;
+
+// Notification e-mail (facultative : ne s'active que si les variables sont présentes).
+const MAIL_USER = process.env.NOTIFY_EMAIL_USER;   // compte Gmail expéditeur
+const MAIL_PASS = process.env.NOTIFY_EMAIL_PASS;   // mot de passe d'application Gmail
+const MAIL_TO = process.env.NOTIFY_EMAIL_TO || MAIL_USER; // destinataire (par défaut = expéditeur)
+
+// Échappe le texte inséré dans l'e-mail HTML.
+function esc(s) {
+  return String(s ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+// Envoie l'e-mail de notification. Ne lève jamais : un échec e-mail ne doit pas
+// empêcher l'enregistrement du lead.
+async function notifyByEmail(lead) {
+  if (!MAIL_USER || !MAIL_PASS) return; // non configuré : on ignore silencieusement
+  try {
+    const transporter = nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
+      auth: { user: MAIL_USER, pass: MAIL_PASS },
+    });
+    const l = (k) => esc(lead[k]);
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#211A1B">
+        <h2 style="color:#7E0E2B;margin:0 0 4px">Nouvelle demande de comparatif</h2>
+        <p style="color:#8A7F79;margin:0 0 20px">Reçue via loryance.ch</p>
+        <table style="width:100%;border-collapse:collapse;font-size:14px">
+          <tr><td style="padding:8px 0;color:#8A7F79;width:150px">Type</td><td style="padding:8px 0;font-weight:600">${l('type')}</td></tr>
+          <tr><td style="padding:8px 0;color:#8A7F79">Nom</td><td style="padding:8px 0;font-weight:600">${l('prenom')} ${l('nom')}</td></tr>
+          <tr><td style="padding:8px 0;color:#8A7F79">Âge</td><td style="padding:8px 0">${l('age')} ans (né(e) le ${l('dob')})</td></tr>
+          <tr><td style="padding:8px 0;color:#8A7F79">Téléphone</td><td style="padding:8px 0;font-weight:600">${l('tel')}</td></tr>
+          <tr><td style="padding:8px 0;color:#8A7F79">E-mail</td><td style="padding:8px 0">${l('email')}</td></tr>
+          <tr><td style="padding:8px 0;color:#8A7F79">Adresse</td><td style="padding:8px 0">${l('adresse')}, ${l('cp')} ${l('ville')}</td></tr>
+        </table>
+        <p style="margin:24px 0 0"><a href="https://www.loryance.ch/moderateur" style="background:#7E0E2B;color:#fff;text-decoration:none;padding:12px 22px;border-radius:8px;font-weight:600;font-size:14px">Ouvrir l'espace conseiller</a></p>
+      </div>`;
+    await transporter.sendMail({
+      from: `"Loryance — Nouveau lead" <${MAIL_USER}>`,
+      to: MAIL_TO,
+      replyTo: lead.email,
+      subject: `Nouveau lead : ${lead.prenom} ${lead.nom} — ${lead.type}`,
+      html,
+    });
+  } catch (e) {
+    // On avale l'erreur : le lead est déjà enregistré, l'e-mail est un bonus.
+  }
+}
 
 const REST = () => `${SUPABASE_URL}/rest/v1/leads`;
 const authHeaders = () => ({
@@ -141,6 +194,9 @@ export default async function handler(req, res) {
         body: JSON.stringify(lead),
       });
       if (!r.ok) return res.status(502).json({ error: 'Enregistrement impossible.' });
+      // Notification e-mail (attendue avant la réponse : sur Vercel, le travail
+      // asynchrone est gelé une fois la réponse envoyée). Un échec est ignoré.
+      await notifyByEmail(lead);
       return res.status(201).json({ ok: true });
     }
 

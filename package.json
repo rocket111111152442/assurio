@@ -8,6 +8,7 @@
     "start": "npx serve ."
   },
   "dependencies": {
-    "@vercel/analytics": "^2.0.1"
+    "@vercel/analytics": "^2.0.1",
+    "nodemailer": "^9.0.3"
   }
 }
