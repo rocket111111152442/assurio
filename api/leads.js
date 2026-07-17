@@ -15,14 +15,21 @@
 import { createHash, timingSafeEqual, randomInt } from 'node:crypto';
 import nodemailer from 'nodemailer';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SECRET = process.env.SUPABASE_SECRET_KEY;
-const MOD_PASS = process.env.MODERATOR_PASSWORD;
+function env(name) {
+  return String(process.env[name] ?? '').trim().replace(/^['"]|['"]$/g, '');
+}
+
+const SUPABASE_URL = env('SUPABASE_URL').replace(/\/+$/, '');
+const SUPABASE_SECRET =
+  env('SUPABASE_SECRET_KEY') ||
+  env('SUPABASE_SERVICE_ROLE_KEY') ||
+  env('SUPABASE_ANON_KEY');
+const MOD_PASS = env('MODERATOR_PASSWORD');
 
 // Notification e-mail (facultative : ne s'active que si les variables sont présentes).
-const MAIL_USER = process.env.NOTIFY_EMAIL_USER;   // compte Gmail expéditeur
-const MAIL_PASS = process.env.NOTIFY_EMAIL_PASS;   // mot de passe d'application Gmail
-const MAIL_TO = process.env.NOTIFY_EMAIL_TO || MAIL_USER; // destinataire (par défaut = expéditeur)
+const MAIL_USER = env('NOTIFY_EMAIL_USER');   // compte Gmail expéditeur
+const MAIL_PASS = env('NOTIFY_EMAIL_PASS');   // mot de passe d'application Gmail
+const MAIL_TO = env('NOTIFY_EMAIL_TO') || MAIL_USER; // destinataire (par défaut = expéditeur)
 
 // Échappe le texte inséré dans l'e-mail HTML.
 function esc(s) {
@@ -71,12 +78,38 @@ async function notifyByEmail(lead) {
   }
 }
 
-const REST = () => `${SUPABASE_URL}/rest/v1/leads`;
+const REST = (query = '') => `${SUPABASE_URL}/rest/v1/leads${query}`;
 const authHeaders = () => ({
   apikey: SUPABASE_SECRET,
   Authorization: `Bearer ${SUPABASE_SECRET}`,
   'Content-Type': 'application/json',
 });
+
+async function supabaseFetch(query = '', options = {}) {
+  try {
+    return await fetch(REST(query), {
+      ...options,
+      headers: { ...authHeaders(), ...(options.headers || {}) },
+    });
+  } catch (e) {
+    console.error('[leads] Supabase fetch failed', {
+      name: e?.name,
+      message: e?.message,
+    });
+    const err = new Error('database_unreachable');
+    err.code = 'database_unreachable';
+    throw err;
+  }
+}
+
+async function logSupabaseError(response, action) {
+  const body = await response.text().catch(() => '');
+  console.error(`[leads] Supabase ${action} failed`, {
+    status: response.status,
+    statusText: response.statusText,
+    body: body.slice(0, 500),
+  });
+}
 
 // Types d'assurance autorisés (liste blanche).
 const TYPES = new Set(['Assurance maladie', 'Auto & moto', 'Ménage & RC', 'Vie & 3e pilier']);
@@ -181,19 +214,30 @@ export default async function handler(req, res) {
 
       // Limitation de fréquence : max 3 demandes/heure par e-mail, 30/heure au total.
       const since = new Date(Date.now() - 3600_000).toISOString();
+      const encodedSince = encodeURIComponent(since);
       const [byEmail, global] = await Promise.all([
-        fetch(`${REST()}?select=id&email=eq.${encodeURIComponent(lead.email)}&created_at=gte.${since}&limit=3`, { headers: authHeaders() }),
-        fetch(`${REST()}?select=id&created_at=gte.${since}&limit=30`, { headers: authHeaders() }),
+        supabaseFetch(`?select=id&email=eq.${encodeURIComponent(lead.email)}&created_at=gte.${encodedSince}&limit=3`),
+        supabaseFetch(`?select=id&created_at=gte.${encodedSince}&limit=30`),
       ]);
+      if (!byEmail.ok || !global.ok) {
+        await Promise.all([
+          byEmail.ok ? null : logSupabaseError(byEmail, 'rate-limit by email'),
+          global.ok ? null : logSupabaseError(global, 'rate-limit global'),
+        ]);
+        return res.status(502).json({ error: 'Base de données indisponible.', code: 'database_read_failed' });
+      }
       if (byEmail.ok && (await byEmail.json()).length >= 3) return res.status(429).json({ error: 'Trop de demandes. Réessayez plus tard.' });
       if (global.ok && (await global.json()).length >= 30) return res.status(429).json({ error: 'Service momentanément saturé. Réessayez plus tard.' });
 
-      const r = await fetch(REST(), {
+      const r = await supabaseFetch('', {
         method: 'POST',
-        headers: { ...authHeaders(), Prefer: 'return=minimal' },
+        headers: { Prefer: 'return=minimal' },
         body: JSON.stringify(lead),
       });
-      if (!r.ok) return res.status(502).json({ error: 'Enregistrement impossible.' });
+      if (!r.ok) {
+        await logSupabaseError(r, 'insert');
+        return res.status(502).json({ error: 'Enregistrement impossible.', code: 'database_write_failed' });
+      }
       // Notification e-mail (attendue avant la réponse : sur Vercel, le travail
       // asynchrone est gelé une fois la réponse envoyée). Un échec est ignoré.
       await notifyByEmail(lead);
@@ -209,8 +253,11 @@ export default async function handler(req, res) {
 
     // ---- GET : lister les demandes ----
     if (req.method === 'GET') {
-      const r = await fetch(`${REST()}?select=*&order=created_at.desc&limit=500`, { headers: authHeaders() });
-      if (!r.ok) return res.status(502).json({ error: 'Lecture impossible.' });
+      const r = await supabaseFetch('?select=*&order=created_at.desc&limit=500');
+      if (!r.ok) {
+        await logSupabaseError(r, 'select');
+        return res.status(502).json({ error: 'Lecture impossible.', code: 'database_read_failed' });
+      }
       return res.status(200).json(await r.json());
     }
 
@@ -218,14 +265,25 @@ export default async function handler(req, res) {
     if (req.method === 'DELETE') {
       const id = String((req.query && req.query.id) || '');
       if (!/^\d{1,12}$/.test(id)) return res.status(400).json({ error: 'Identifiant invalide.' });
-      const r = await fetch(`${REST()}?id=eq.${id}`, { method: 'DELETE', headers: authHeaders() });
-      if (!r.ok) return res.status(502).json({ error: 'Suppression impossible.' });
+      const r = await supabaseFetch(`?id=eq.${id}`, { method: 'DELETE' });
+      if (!r.ok) {
+        await logSupabaseError(r, 'delete');
+        return res.status(502).json({ error: 'Suppression impossible.', code: 'database_delete_failed' });
+      }
       return res.status(200).json({ ok: true });
     }
 
     res.setHeader('Allow', 'GET, POST, DELETE');
     return res.status(405).json({ error: 'Méthode non autorisée.' });
-  } catch {
-    return res.status(500).json({ error: 'Erreur serveur.' });
+  } catch (e) {
+    console.error('[leads] Unexpected server error', {
+      name: e?.name,
+      message: e?.message,
+      code: e?.code,
+    });
+    if (e?.code === 'database_unreachable') {
+      return res.status(502).json({ error: 'Base de données indisponible.', code: 'database_unreachable' });
+    }
+    return res.status(500).json({ error: 'Erreur serveur.', code: 'server_error' });
   }
 }
