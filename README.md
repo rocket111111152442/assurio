@@ -31,7 +31,7 @@ Le site peut enregistrer les demandes dans un Google Sheet via Apps Script, sans
    - `Execute as` : `Me`
    - `Who has access` : `Anyone`
 6. Dans Vercel, ajouter ces variables d'environnement :
-   - `LEADS_SHEETS_WEBAPP_URL` : l'URL `/exec` du Web app Apps Script.
+   - `LEADS_SHEETS_WEBAPP_URL` : l'URL du Web app Apps Script qui finit par `/exec` (pas `/dev`, pas une URL d'édition).
    - `LEADS_STORE_SECRET` : la même phrase secrète.
    - `MODERATOR_PASSWORD` : le code de l'espace conseiller.
 7. Redéployer le site.

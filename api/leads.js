@@ -34,6 +34,12 @@ function normalizeSupabaseUrl(value) {
   return clean.replace(/\/+$/, '');
 }
 
+function normalizeSheetsUrl(value) {
+  const clean = String(value || '').trim().replace(/^['"]|['"]$/g, '');
+  if (!clean) return '';
+  return clean.replace(/\/dev(?:[?#].*)?$/i, '/exec');
+}
+
 function codedError(code, message) {
   const err = new Error(message || code);
   err.code = code;
@@ -45,10 +51,11 @@ const SUPABASE_SECRET =
   compactEnv('SUPABASE_SECRET_KEY') ||
   compactEnv('SUPABASE_SERVICE_ROLE_KEY') ||
   compactEnv('SUPABASE_ANON_KEY');
-const SHEETS_WEBAPP_URL =
+const SHEETS_WEBAPP_URL = normalizeSheetsUrl(
   env('LEADS_SHEETS_WEBAPP_URL') ||
   env('GOOGLE_SHEETS_WEBAPP_URL') ||
-  env('SHEETS_WEBAPP_URL');
+  env('SHEETS_WEBAPP_URL')
+);
 const LEADS_STORE_SECRET =
   env('LEADS_STORE_SECRET') ||
   env('GOOGLE_SHEETS_SECRET') ||
@@ -182,10 +189,14 @@ async function sheetsRequest(action, payload = {}) {
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
+    const body = text.slice(0, 500);
     console.error('[leads] Google Sheets invalid JSON', {
       status: response.status,
-      body: text.slice(0, 500),
+      body,
     });
+    if (/<html|<!doctype/i.test(body)) {
+      throw codedError('database_webapp_not_public_or_wrong_url');
+    }
     throw codedError('database_invalid_response');
   }
 
@@ -427,6 +438,9 @@ export default async function handler(req, res) {
     }
     if (e?.code === 'database_invalid_response') {
       return res.status(502).json({ error: 'Réponse base de données invalide.', code: 'database_invalid_response' });
+    }
+    if (e?.code === 'database_webapp_not_public_or_wrong_url') {
+      return res.status(502).json({ error: 'URL Apps Script incorrecte ou accès non public.', code: 'database_webapp_not_public_or_wrong_url' });
     }
     if (e?.code === 'database_unauthorized') {
       return res.status(502).json({ error: 'Accès base de données refusé.', code: 'database_unauthorized' });
