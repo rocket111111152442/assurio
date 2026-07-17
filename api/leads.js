@@ -45,6 +45,14 @@ const SUPABASE_SECRET =
   compactEnv('SUPABASE_SECRET_KEY') ||
   compactEnv('SUPABASE_SERVICE_ROLE_KEY') ||
   compactEnv('SUPABASE_ANON_KEY');
+const SHEETS_WEBAPP_URL =
+  env('LEADS_SHEETS_WEBAPP_URL') ||
+  env('GOOGLE_SHEETS_WEBAPP_URL') ||
+  env('SHEETS_WEBAPP_URL');
+const LEADS_STORE_SECRET =
+  env('LEADS_STORE_SECRET') ||
+  env('GOOGLE_SHEETS_SECRET') ||
+  env('SHEETS_WEBAPP_SECRET');
 const MOD_PASS = env('MODERATOR_PASSWORD');
 
 // Notification e-mail (facultative : ne s'active que si les variables sont présentes).
@@ -106,6 +114,10 @@ const authHeaders = () => ({
   'Content-Type': 'application/json',
 });
 
+const HAS_SUPABASE_STORE = Boolean(SUPABASE_URL && SUPABASE_SECRET);
+const HAS_SHEETS_STORE = Boolean(SHEETS_WEBAPP_URL && LEADS_STORE_SECRET);
+const USE_SHEETS_STORE = HAS_SHEETS_STORE;
+
 async function supabaseFetch(query = '', options = {}) {
   const url = REST(query);
   const headers = { ...authHeaders(), ...(options.headers || {}) };
@@ -142,6 +154,124 @@ async function logSupabaseError(response, action) {
     statusText: response.statusText,
     body: body.slice(0, 500),
   });
+}
+
+async function sheetsRequest(action, payload = {}) {
+  if (!HAS_SHEETS_STORE) throw codedError('sheets_config_missing');
+  let response;
+  try {
+    response = await fetch(SHEETS_WEBAPP_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: LEADS_STORE_SECRET,
+        action,
+        ...payload,
+      }),
+    });
+  } catch (e) {
+    console.error('[leads] Google Sheets fetch failed', {
+      name: e?.name,
+      message: e?.message,
+    });
+    throw codedError('database_network_failed');
+  }
+
+  const text = await response.text().catch(() => '');
+  let data;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    console.error('[leads] Google Sheets invalid JSON', {
+      status: response.status,
+      body: text.slice(0, 500),
+    });
+    throw codedError('database_invalid_response');
+  }
+
+  if (!response.ok || data.ok === false) {
+    console.error('[leads] Google Sheets action failed', {
+      action,
+      status: response.status,
+      error: data.error,
+      message: data.message,
+    });
+    throw codedError(data.error === 'unauthorized' ? 'database_unauthorized' : 'database_request_failed');
+  }
+
+  return data;
+}
+
+async function recentCounts(email, since) {
+  if (USE_SHEETS_STORE) {
+    const data = await sheetsRequest('stats', { email, since });
+    return {
+      byEmail: Number(data.byEmail || 0),
+      global: Number(data.global || 0),
+    };
+  }
+
+  const encodedSince = encodeURIComponent(since);
+  const [byEmail, global] = await Promise.all([
+    supabaseFetch(`?select=id&email=eq.${encodeURIComponent(email)}&created_at=gte.${encodedSince}&limit=3`),
+    supabaseFetch(`?select=id&created_at=gte.${encodedSince}&limit=30`),
+  ]);
+  if (!byEmail.ok || !global.ok) {
+    await Promise.all([
+      byEmail.ok ? null : logSupabaseError(byEmail, 'rate-limit by email'),
+      global.ok ? null : logSupabaseError(global, 'rate-limit global'),
+    ]);
+    throw codedError('database_read_failed');
+  }
+
+  return {
+    byEmail: (await byEmail.json()).length,
+    global: (await global.json()).length,
+  };
+}
+
+async function insertLead(lead) {
+  if (USE_SHEETS_STORE) {
+    await sheetsRequest('insert', { lead });
+    return;
+  }
+
+  const r = await supabaseFetch('', {
+    method: 'POST',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify(lead),
+  });
+  if (!r.ok) {
+    await logSupabaseError(r, 'insert');
+    throw codedError('database_write_failed');
+  }
+}
+
+async function listLeads() {
+  if (USE_SHEETS_STORE) {
+    const data = await sheetsRequest('list', { limit: 500 });
+    return Array.isArray(data.leads) ? data.leads : [];
+  }
+
+  const r = await supabaseFetch('?select=*&order=created_at.desc&limit=500');
+  if (!r.ok) {
+    await logSupabaseError(r, 'select');
+    throw codedError('database_read_failed');
+  }
+  return await r.json();
+}
+
+async function removeLead(id) {
+  if (USE_SHEETS_STORE) {
+    await sheetsRequest('delete', { id });
+    return;
+  }
+
+  const r = await supabaseFetch(`?id=eq.${id}`, { method: 'DELETE' });
+  if (!r.ok) {
+    await logSupabaseError(r, 'delete');
+    throw codedError('database_delete_failed');
+  }
 }
 
 // Types d'assurance autorisés (liste blanche).
@@ -197,7 +327,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
-  if (!SUPABASE_URL || !SUPABASE_SECRET) {
+  if (!HAS_SHEETS_STORE && !HAS_SUPABASE_STORE) {
     return res.status(500).json({ error: 'Configuration serveur manquante.' });
   }
   if (!originAllowed(req)) {
@@ -247,30 +377,11 @@ export default async function handler(req, res) {
 
       // Limitation de fréquence : max 3 demandes/heure par e-mail, 30/heure au total.
       const since = new Date(Date.now() - 3600_000).toISOString();
-      const encodedSince = encodeURIComponent(since);
-      const [byEmail, global] = await Promise.all([
-        supabaseFetch(`?select=id&email=eq.${encodeURIComponent(lead.email)}&created_at=gte.${encodedSince}&limit=3`),
-        supabaseFetch(`?select=id&created_at=gte.${encodedSince}&limit=30`),
-      ]);
-      if (!byEmail.ok || !global.ok) {
-        await Promise.all([
-          byEmail.ok ? null : logSupabaseError(byEmail, 'rate-limit by email'),
-          global.ok ? null : logSupabaseError(global, 'rate-limit global'),
-        ]);
-        return res.status(502).json({ error: 'Base de données indisponible.', code: 'database_read_failed' });
-      }
-      if (byEmail.ok && (await byEmail.json()).length >= 3) return res.status(429).json({ error: 'Trop de demandes. Réessayez plus tard.' });
-      if (global.ok && (await global.json()).length >= 30) return res.status(429).json({ error: 'Service momentanément saturé. Réessayez plus tard.' });
+      const counts = await recentCounts(lead.email, since);
+      if (counts.byEmail >= 3) return res.status(429).json({ error: 'Trop de demandes. Réessayez plus tard.' });
+      if (counts.global >= 30) return res.status(429).json({ error: 'Service momentanément saturé. Réessayez plus tard.' });
 
-      const r = await supabaseFetch('', {
-        method: 'POST',
-        headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify(lead),
-      });
-      if (!r.ok) {
-        await logSupabaseError(r, 'insert');
-        return res.status(502).json({ error: 'Enregistrement impossible.', code: 'database_write_failed' });
-      }
+      await insertLead(lead);
       // Notification e-mail (attendue avant la réponse : sur Vercel, le travail
       // asynchrone est gelé une fois la réponse envoyée). Un échec est ignoré.
       await notifyByEmail(lead);
@@ -286,23 +397,14 @@ export default async function handler(req, res) {
 
     // ---- GET : lister les demandes ----
     if (req.method === 'GET') {
-      const r = await supabaseFetch('?select=*&order=created_at.desc&limit=500');
-      if (!r.ok) {
-        await logSupabaseError(r, 'select');
-        return res.status(502).json({ error: 'Lecture impossible.', code: 'database_read_failed' });
-      }
-      return res.status(200).json(await r.json());
+      return res.status(200).json(await listLeads());
     }
 
     // ---- DELETE : supprimer une demande ----
     if (req.method === 'DELETE') {
       const id = String((req.query && req.query.id) || '');
-      if (!/^\d{1,12}$/.test(id)) return res.status(400).json({ error: 'Identifiant invalide.' });
-      const r = await supabaseFetch(`?id=eq.${id}`, { method: 'DELETE' });
-      if (!r.ok) {
-        await logSupabaseError(r, 'delete');
-        return res.status(502).json({ error: 'Suppression impossible.', code: 'database_delete_failed' });
-      }
+      if (!/^[a-zA-Z0-9_-]{1,80}$/.test(id)) return res.status(400).json({ error: 'Identifiant invalide.' });
+      await removeLead(id);
       return res.status(200).json({ ok: true });
     }
 
@@ -322,6 +424,24 @@ export default async function handler(req, res) {
     }
     if (e?.code === 'database_network_failed') {
       return res.status(502).json({ error: 'Base de données indisponible.', code: 'database_network_failed' });
+    }
+    if (e?.code === 'database_invalid_response') {
+      return res.status(502).json({ error: 'Réponse base de données invalide.', code: 'database_invalid_response' });
+    }
+    if (e?.code === 'database_unauthorized') {
+      return res.status(502).json({ error: 'Accès base de données refusé.', code: 'database_unauthorized' });
+    }
+    if (e?.code === 'database_request_failed') {
+      return res.status(502).json({ error: 'Base de données indisponible.', code: 'database_request_failed' });
+    }
+    if (e?.code === 'database_read_failed') {
+      return res.status(502).json({ error: 'Lecture impossible.', code: 'database_read_failed' });
+    }
+    if (e?.code === 'database_write_failed') {
+      return res.status(502).json({ error: 'Enregistrement impossible.', code: 'database_write_failed' });
+    }
+    if (e?.code === 'database_delete_failed') {
+      return res.status(502).json({ error: 'Suppression impossible.', code: 'database_delete_failed' });
     }
     return res.status(500).json({ error: 'Erreur serveur.', code: 'server_error' });
   }
