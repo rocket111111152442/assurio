@@ -19,11 +19,32 @@ function env(name) {
   return String(process.env[name] ?? '').trim().replace(/^['"]|['"]$/g, '');
 }
 
-const SUPABASE_URL = env('SUPABASE_URL').replace(/\/+$/, '');
+function compactEnv(name) {
+  return env(name).replace(/\s+/g, '');
+}
+
+function normalizeSupabaseUrl(value) {
+  let clean = String(value || '')
+    .replace(/\s+/g, '')
+    .replace(/\/rest\/v1(?:\/leads)?\/?$/i, '')
+    .replace(/\/+$/, '');
+  if (!clean) return '';
+  if (/^[a-z0-9-]+$/i.test(clean)) clean = `https://${clean}.supabase.co`;
+  else if (!/^https?:\/\//i.test(clean) && clean.includes('supabase.co')) clean = `https://${clean}`;
+  return clean.replace(/\/+$/, '');
+}
+
+function codedError(code, message) {
+  const err = new Error(message || code);
+  err.code = code;
+  return err;
+}
+
+const SUPABASE_URL = normalizeSupabaseUrl(compactEnv('SUPABASE_URL'));
 const SUPABASE_SECRET =
-  env('SUPABASE_SECRET_KEY') ||
-  env('SUPABASE_SERVICE_ROLE_KEY') ||
-  env('SUPABASE_ANON_KEY');
+  compactEnv('SUPABASE_SECRET_KEY') ||
+  compactEnv('SUPABASE_SERVICE_ROLE_KEY') ||
+  compactEnv('SUPABASE_ANON_KEY');
 const MOD_PASS = env('MODERATOR_PASSWORD');
 
 // Notification e-mail (facultative : ne s'active que si les variables sont présentes).
@@ -86,19 +107,31 @@ const authHeaders = () => ({
 });
 
 async function supabaseFetch(query = '', options = {}) {
+  const url = REST(query);
+  const headers = { ...authHeaders(), ...(options.headers || {}) };
   try {
-    return await fetch(REST(query), {
+    new URL(url);
+  } catch (e) {
+    console.error('[leads] Supabase URL invalid', { message: e?.message });
+    throw codedError('database_url_invalid');
+  }
+  try {
+    new Headers(headers);
+  } catch (e) {
+    console.error('[leads] Supabase headers invalid', { message: e?.message });
+    throw codedError('database_credentials_invalid_format');
+  }
+  try {
+    return await fetch(url, {
       ...options,
-      headers: { ...authHeaders(), ...(options.headers || {}) },
+      headers,
     });
   } catch (e) {
     console.error('[leads] Supabase fetch failed', {
       name: e?.name,
       message: e?.message,
     });
-    const err = new Error('database_unreachable');
-    err.code = 'database_unreachable';
-    throw err;
+    throw codedError('database_network_failed');
   }
 }
 
@@ -281,8 +314,14 @@ export default async function handler(req, res) {
       message: e?.message,
       code: e?.code,
     });
-    if (e?.code === 'database_unreachable') {
-      return res.status(502).json({ error: 'Base de données indisponible.', code: 'database_unreachable' });
+    if (e?.code === 'database_url_invalid') {
+      return res.status(502).json({ error: 'URL Supabase invalide.', code: 'database_url_invalid' });
+    }
+    if (e?.code === 'database_credentials_invalid_format') {
+      return res.status(502).json({ error: 'Clé Supabase invalide.', code: 'database_credentials_invalid_format' });
+    }
+    if (e?.code === 'database_network_failed') {
+      return res.status(502).json({ error: 'Base de données indisponible.', code: 'database_network_failed' });
     }
     return res.status(500).json({ error: 'Erreur serveur.', code: 'server_error' });
   }
