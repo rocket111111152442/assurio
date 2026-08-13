@@ -24,7 +24,7 @@ function doPost(e) {
     }
 
     if (body.action === 'insert') return insertLead_(body.lead || {});
-    if (body.action === 'list') return listLeads_(body.limit || 500);
+    if (body.action === 'list') return listLeads_(body.limit || 5000);
     if (body.action === 'delete') return deleteLead_(String(body.id || ''));
     if (body.action === 'stats') return stats_(String(body.email || ''), String(body.since || ''));
 
@@ -58,7 +58,7 @@ function insertLead_(lead) {
 
 function listLeads_(limit) {
   const rows = readRows_();
-  const max = Math.max(1, Math.min(Number(limit) || 500, 500));
+  const max = Math.max(1, Math.min(Number(limit) || 5000, 5000));
   const leads = rows
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
     .slice(0, max);

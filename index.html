@@ -938,7 +938,7 @@
           <p style="font-size:14px; color:#8A7F79; margin:6px 0 0;">{{ leadsCount }} demande(s) enregistrée(s) · confidentiel</p>
         </div>
         <div style="display:flex; gap:10px;">
-          <button onClick="{{ exportLeads }}" style="background:#fff; border:1px solid #E3D6C9; color:#3A302E; font-weight:600; font-size:14px; padding:11px 18px; border-radius:9px; cursor:pointer;">Exporter (JSON)</button>
+          <button onClick="{{ exportLeads }}" style="background:#fff; border:1px solid #E3D6C9; color:#3A302E; font-weight:600; font-size:14px; padding:11px 18px; border-radius:9px; cursor:pointer;">Exporter Excel</button>
           <button onClick="{{ lockAdmin }}" style="background:#5A0A1F; border:none; color:#fff; font-weight:600; font-size:14px; padding:11px 18px; border-radius:9px; cursor:pointer;">Verrouiller</button>
         </div>
       </div>
@@ -1246,7 +1246,31 @@ class Component extends DCLogic {
       if(!r.ok) throw new Error('delete failed');
       this.setState({leads:this.state.leads.filter(l=>l.id!==id)});
     } catch(e){} };
-  exportLeads=()=>{ const blob=new Blob([JSON.stringify(this.state.leads,null,2)],{type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download='loryance-demandes.json'; a.click(); setTimeout(()=>URL.revokeObjectURL(url),2000); };
+  excelText(v){ return String(v ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'); }
+  exportLeads=()=>{
+    const leads=this.state.leads||[];
+    const columns=[
+      ['Date de demande', l=>this.fmtDate(l.created_at)],
+      ['Assurance', l=>l.type],
+      ['Prénom', l=>l.prenom],
+      ['Nom', l=>l.nom],
+      ['Nom complet', l=>`${l.prenom||''} ${l.nom||''}`.trim()],
+      ['E-mail', l=>l.email],
+      ['Téléphone', l=>l.tel],
+      ['Date de naissance', l=>l.dob],
+      ['Âge', l=>l.age],
+      ['Adresse', l=>l.adresse],
+      ['Code postal', l=>l.cp],
+      ['Ville', l=>l.ville],
+      ['Identifiant', l=>l.id],
+    ];
+    const rows=leads.map((lead)=>`<tr>${columns.map(([,get])=>`<td class="text">${this.excelText(get(lead))}</td>`).join('')}</tr>`).join('');
+    const generatedAt=this.fmtDate(new Date().toISOString());
+    const html=`<!doctype html><html><head><meta charset="utf-8"><style>body{font-family:Arial,sans-serif;} table{border-collapse:collapse;} th{background:#7E0E2B;color:#fff;font-weight:700;} th,td{border:1px solid #d9d9d9;padding:8px 10px;font-size:12px;vertical-align:top;} .text{mso-number-format:"\\@";} .meta{margin:0 0 14px;color:#666;font-size:12px;}</style></head><body><h2>Demandes Loryance</h2><p class="meta">Export généré le ${this.excelText(generatedAt)} · ${leads.length} demande(s)</p><table><thead><tr>${columns.map(([label])=>`<th>${this.excelText(label)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></body></html>`;
+    const stamp=new Date().toISOString().slice(0,10);
+    const blob=new Blob(['\ufeff',html],{type:'application/vnd.ms-excel;charset=utf-8'});
+    const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`loryance-demandes-${stamp}.xls`; a.click(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+  };
   fmtDate(ts){ try{ return new Date(ts).toLocaleString('fr-CH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(e){ return ''; } }
   ageFromDob(dob){ if(!dob) return null; const d=new Date(dob); if(isNaN(d.getTime())) return null; const t=new Date(); let a=t.getFullYear()-d.getFullYear(); const m=t.getMonth()-d.getMonth(); if(m<0||(m===0&&t.getDate()<d.getDate())) a--; return a; }
 

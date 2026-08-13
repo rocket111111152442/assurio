@@ -260,11 +260,11 @@ async function insertLead(lead) {
 
 async function listLeads() {
   if (USE_SHEETS_STORE) {
-    const data = await sheetsRequest('list', { limit: 500 });
+    const data = await sheetsRequest('list', { limit: 5000 });
     return Array.isArray(data.leads) ? data.leads : [];
   }
 
-  const r = await supabaseFetch('?select=*&order=created_at.desc&limit=500');
+  const r = await supabaseFetch('?select=*&order=created_at.desc&limit=5000');
   if (!r.ok) {
     await logSupabaseError(r, 'select');
     throw codedError('database_read_failed');
