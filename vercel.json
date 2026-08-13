@@ -4,6 +4,12 @@
   "buildCommand": "npm run build",
   "outputDirectory": ".",
   "cleanUrls": true,
+  "crons": [
+    {
+      "path": "/api/export-leads",
+      "schedule": "0 7 15 * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/moderateur",

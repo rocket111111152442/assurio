@@ -13,6 +13,8 @@ const HEADERS = [
   'cp',
   'email',
   'tel',
+  'exported_at',
+  'exported_batch',
 ];
 
 function doPost(e) {
@@ -25,6 +27,8 @@ function doPost(e) {
 
     if (body.action === 'insert') return insertLead_(body.lead || {});
     if (body.action === 'list') return listLeads_(body.limit || 5000);
+    if (body.action === 'unexported') return unexportedLeads_(body.limit || 5000);
+    if (body.action === 'markExported') return markExported_(body.ids || [], String(body.batchId || ''), String(body.exportedAt || ''));
     if (body.action === 'delete') return deleteLead_(String(body.id || ''));
     if (body.action === 'stats') return stats_(String(body.email || ''), String(body.since || ''));
 
@@ -63,6 +67,52 @@ function listLeads_(limit) {
     .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
     .slice(0, max);
   return json_({ ok: true, leads: leads });
+}
+
+function unexportedLeads_(limit) {
+  const rows = readRows_();
+  const max = Math.max(1, Math.min(Number(limit) || 5000, 5000));
+  const leads = rows
+    .filter((row) => !String(row.exported_at || '').trim())
+    .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))
+    .slice(0, max);
+  return json_({ ok: true, leads: leads });
+}
+
+function markExported_(ids, batchId, exportedAt) {
+  const cleanIds = Array.isArray(ids)
+    ? ids.map((id) => String(id || '')).filter((id) => /^[a-zA-Z0-9_-]{1,80}$/.test(id))
+    : [];
+  if (!cleanIds.length) return json_({ ok: true, marked: 0 });
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    const sheet = getSheet_();
+    const lastRow = sheet.getLastRow();
+    if (lastRow < 2) return json_({ ok: true, marked: 0 });
+
+    const idSet = {};
+    cleanIds.forEach((id) => { idSet[id] = true; });
+    const rows = sheet.getRange(2, 1, lastRow - 1, HEADERS.length).getValues();
+    const exportedAtColumn = HEADERS.indexOf('exported_at') + 1;
+    const exportedBatchColumn = HEADERS.indexOf('exported_batch') + 1;
+    let marked = 0;
+
+    rows.forEach((row, index) => {
+      const id = String(row[0] || '');
+      const alreadyExported = String(row[exportedAtColumn - 1] || '').trim();
+      if (!idSet[id] || alreadyExported) return;
+      const rowNumber = index + 2;
+      sheet.getRange(rowNumber, exportedAtColumn).setValue(exportedAt || new Date().toISOString());
+      sheet.getRange(rowNumber, exportedBatchColumn).setValue(batchId);
+      marked += 1;
+    });
+
+    return json_({ ok: true, marked: marked });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function deleteLead_(id) {

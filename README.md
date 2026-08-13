@@ -37,3 +37,17 @@ Le site peut enregistrer les demandes dans un Google Sheet via Apps Script, sans
 7. Redéployer le site.
 
 Si `LEADS_SHEETS_WEBAPP_URL` et `LEADS_STORE_SECRET` sont présents, l'API utilise Google Sheets. Sinon, elle garde l'ancien mode Supabase.
+
+## Export mensuel automatique des leads
+
+Vercel appelle automatiquement `/api/export-leads` le 15 de chaque mois à 07:00 UTC. La route exporte uniquement les lignes Google Sheets qui n'ont pas encore de valeur `exported_at`, envoie un fichier Excel à `loryance@contact.fr`, puis marque ces lignes comme exportées.
+
+Variables d'environnement Vercel nécessaires :
+
+- `CRON_SECRET` : phrase secrète longue utilisée par Vercel Cron pour sécuriser la route.
+- `EXPORT_EMAIL_USER` : adresse Gmail utilisée comme expéditeur SMTP.
+- `EXPORT_EMAIL_PASS` : mot de passe d'application Gmail de l'expéditeur.
+
+Si `EXPORT_EMAIL_USER` et `EXPORT_EMAIL_PASS` ne sont pas renseignés, l'export réutilise `NOTIFY_EMAIL_USER` et `NOTIFY_EMAIL_PASS`.
+
+Après modification de `scripts/google-sheets-leads.gs`, il faut aussi remplacer le code dans Apps Script puis redéployer le Web App Google.
